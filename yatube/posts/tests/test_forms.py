@@ -71,7 +71,7 @@ class PostCreateFormTests(TestCase):
         }
 
         response = self.authorized_client.post(
-            reverse('posts:post_create'),
+            CREATE,
             data=form_data,
             follow=True
         )
@@ -134,7 +134,7 @@ class PostCreateFormTests(TestCase):
             'group': PostCreateFormTests.group.id,
         }
         response = self.client.post(
-            reverse('posts:post_create'),
+            CREATE,
             data=form_data,
             follow=True
         )
@@ -145,8 +145,12 @@ class PostCreateFormTests(TestCase):
 
     def test_create_comment(self):
         """Проверка формы создания нового комментария."""
-        url_post = reverse('posts:post_detail', kwargs={'post_id': self.post.id})
-        url_comment = reverse('posts:add_comment', kwargs={'post_id': self.post.pk})
+        url_post = reverse(
+            'posts:post_detail', kwargs={'post_id': self.post.id}
+        )
+        url_comment = reverse(
+            'posts:add_comment', kwargs={'post_id': self.post.pk}
+        )
         comments_count = Comment.objects.filter(post=self.post.pk).count()
         form_data = {'text': 'test_comment'}
 

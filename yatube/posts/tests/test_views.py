@@ -5,7 +5,7 @@ from django.test import TestCase, Client
 from django.urls import reverse
 
 from yatube.settings import POSTS_PER_PAGE
-from ..models import Group, Post
+from ..models import Group, Post, Follow
 
 User = get_user_model()
 
@@ -19,6 +19,10 @@ GROUP = reverse('posts:group_list', kwargs={'slug': SLUG})
 PROFILE = reverse('posts:profile', kwargs={'username': USER})
 AUTHOR = reverse('about:author')
 TECH = reverse('about:tech')
+FOLLOW_INDEX = reverse('posts:follow_index')
+FOLLOW = reverse('posts:profile_follow', kwargs={'username': USER})
+UNFOLLOW = reverse('posts:profile_unfollow', kwargs={'username': USER})
+
 ALL_POSTS = 13
 
 
@@ -45,6 +49,9 @@ class PostViewsTests(TestCase):
     def setUp(self):
         self.authorized_client = Client()
         self.authorized_client.force_login(PostViewsTests.user)
+        self.user2 = User.objects.create(username='Follower')
+        self.authorized_client2 = Client()
+        self.authorized_client2.force_login(self.user2)
 
     def test_pages_uses_correct_template(self):
         """ Задание 1: тесты, проверяющие,
@@ -143,7 +150,9 @@ class PostViewsTests(TestCase):
         )
 
     def test_cache_index(self):
-        """Проверка хранения и очищения кэша для index."""
+        """
+        Проверка хранения и очищения кэша для index.
+        """
         response_0 = self.authorized_client.get(INDEX)
         posts_0 = response_0.content
         Post.objects.first().delete()
@@ -186,3 +195,69 @@ class PaginatorViewsTest(TestCase):
             ALL_POSTS - POSTS_PER_PAGE
         )
 
+
+class FollowTests(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.follower = User.objects.create_user(username='Подписчик')
+        cls.following_1 = User.objects.create_user(username=USER)
+        cls.follow = Follow.objects.create(author=cls.following_1,
+                                           user=cls.follower)
+        cls.post = Post.objects.create(
+            author=cls.following_1,
+            text='Какой-то текст',
+        )
+        cls.follower_2 = User.objects.create_user(username='Подписчик 2')
+
+    def setUp(self):
+        self.guest_client = Client()
+        self.follower_1 = Client()
+        self.follower_1.force_login(FollowTests.follower)
+        self.authorized_client_2 = Client()
+        self.authorized_client_2.force_login(FollowTests.follower_2)
+
+    def test_auth_user_follow(self):
+        """
+        Авторизованный пользователь может подписываться
+        на других пользователей.
+        """
+        self.follower_1.get(FOLLOW)
+        follow_exist = Follow.objects.filter(user=self.follower,
+                                             author=self.following_1).exists()
+        self.assertTrue(follow_exist)
+
+    def test_auth_user_unfollow(self):
+        """
+        Авторизованный пользователь может удалять
+        других пользователей из подписки.
+        """
+        self.follower_1.get(FOLLOW)
+        self.follower_1.get(UNFOLLOW)
+        follow_exist = Follow.objects.filter(user=self.follower,
+                                             author=self.following_1).exists()
+        self.assertFalse(follow_exist)
+
+    def test_follow_index(self):
+        """
+        Новая запись пользователя появляется в ленте тех,
+        кто на него подписан и не появляется в ленте тех,
+        кто не подписан на него
+        """
+        self.follower_1.get(FOLLOW)
+        response = self.follower_1.get(FOLLOW_INDEX)
+        self.assertEqual(len(response.context['page_obj']), 1)
+
+        response = self.authorized_client_2.get(FOLLOW_INDEX)
+        self.assertEqual(len(response.context['page_obj']), 0)
+
+        FollowTests.post = Post.objects.create(
+            author=FollowTests.following_1,
+            text='Другой какой-то текст',
+        )
+
+        response = self.follower_1.get(FOLLOW_INDEX)
+        self.assertEqual(len(response.context['page_obj']), 2)
+
+        response = self.authorized_client_2.get(FOLLOW_INDEX)
+        self.assertEqual(len(response.context['page_obj']), 0)
