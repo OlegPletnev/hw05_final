@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+
+{% block title %}Последние обновления на сайте{% endblock %}
+{% block header %}{% endblock %}
+{% block content %}
+
+  {% include 'posts/includes/switcher.html' with index=True %}
+  {% include 'posts/includes/post_list.html' with auth=True %}
+
+  {% include 'posts/includes/paginator.html' %}
+
+{% endblock %}
