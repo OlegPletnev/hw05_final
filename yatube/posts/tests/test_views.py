@@ -1,3 +1,5 @@
+from http import HTTPStatus
+
 from django import forms
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
@@ -222,34 +224,42 @@ class FollowTests(TestCase):
         Авторизованный пользователь может подписываться
         на других пользователей.
         """
-        self.follower_1.get(FOLLOW)
-        follow_exist = Follow.objects.filter(user=self.follower,
-                                             author=self.following_1).exists()
-        self.assertTrue(follow_exist)
+        before = Follow.objects.filter(
+            user=self.follower_2,
+            author=self.following_1
+        ).count()
+
+        response = self.authorized_client_2.get(FOLLOW)
+
+        after = Follow.objects.filter(
+            user=self.follower_2,
+            author=self.following_1
+        ).count()
+
+        # Проверяем, что подписка создана
+        self.assertNotEqual(before, after, 'Подписка не создана')
+        # Проверяем редирект и статус ответа
+        self.assertRedirects(response, PROFILE,
+                             status_code=HTTPStatus.FOUND,
+                             target_status_code=HTTPStatus.OK)
 
     def test_auth_user_unfollow(self):
         """
         Авторизованный пользователь может удалять
         других пользователей из подписки.
         """
-        self.follower_1.get(FOLLOW)
         self.follower_1.get(UNFOLLOW)
         follow_exist = Follow.objects.filter(user=self.follower,
                                              author=self.following_1).exists()
         self.assertFalse(follow_exist)
 
-    def test_follow_index(self):
+    def test_follow_index_1(self):
         """
         Новая запись пользователя появляется в ленте тех,
-        кто на него подписан и не появляется в ленте тех,
-        кто не подписан на него
+        кто на него подписан
         """
-        self.follower_1.get(FOLLOW)
         response = self.follower_1.get(FOLLOW_INDEX)
         self.assertEqual(len(response.context['page_obj']), 1)
-
-        response = self.authorized_client_2.get(FOLLOW_INDEX)
-        self.assertEqual(len(response.context['page_obj']), 0)
 
         FollowTests.post = Post.objects.create(
             author=FollowTests.following_1,
@@ -258,6 +268,19 @@ class FollowTests(TestCase):
 
         response = self.follower_1.get(FOLLOW_INDEX)
         self.assertEqual(len(response.context['page_obj']), 2)
+
+    def test_follow_index_2(self):
+        """
+        Новая запись пользователя не появляется в ленте тех,
+        кто не подписан на него
+        """
+        response = self.authorized_client_2.get(FOLLOW_INDEX)
+        self.assertEqual(len(response.context['page_obj']), 0)
+
+        FollowTests.post = Post.objects.create(
+            author=FollowTests.following_1,
+            text='Другой какой-то текст',
+        )
 
         response = self.authorized_client_2.get(FOLLOW_INDEX)
         self.assertEqual(len(response.context['page_obj']), 0)

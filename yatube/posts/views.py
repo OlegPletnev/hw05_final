@@ -38,11 +38,10 @@ def profile(request, username):
     post_list = author.posts.all()
     page_obj = create_pag(request, post_list)
     following = False
-    if request.user.is_authenticated:
-        if Follow.objects.filter(
-                user=request.user, author=author
-        ).exists():
-            following = True
+    if request.user.is_authenticated and Follow.objects.filter(
+            user=request.user, author=author
+    ).exists():
+        following = True
     context = {
         'page_obj': page_obj,
         'author': author,
@@ -119,12 +118,7 @@ def follow_index(request):
 @login_required
 def profile_follow(request, username):
     author = get_object_or_404(User, username=username)
-    exists_record = Follow.objects.filter(
-        user=request.user,
-        author=author
-    ).exists()
-    if author != request.user and not exists_record:
-        Follow.objects.create(user=request.user, author=author)
+    Follow.objects.get_or_create(user=request.user, author=author)
 
     return redirect('posts:profile', username=username)
 

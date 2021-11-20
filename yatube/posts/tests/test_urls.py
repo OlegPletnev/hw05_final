@@ -10,13 +10,17 @@ User = get_user_model()
 
 INDEX = reverse('posts:index')
 CREATE = reverse('posts:post_create')
+FOLLOW_INDEX = reverse('posts:follow_index')
 SLUG = 'test_slug'
 USER1 = 'Author'
 USER2 = 'HasNoName'
 GROUP = reverse('posts:group_list', kwargs={'slug': SLUG})
 PROFILE = reverse('posts:profile', kwargs={'username': USER2})
+FOLLOW = reverse('posts:profile_follow', kwargs={'username': USER1})
+UNFOLLOW = reverse('posts:profile_unfollow', kwargs={'username': USER1})
 AUTHOR = reverse('about:author')
 TECH = reverse('about:tech')
+LOGIN = reverse('users:login')
 
 
 class PostURLTests(TestCase):
@@ -38,6 +42,9 @@ class PostURLTests(TestCase):
         cls.POST = reverse(
             'posts:post_detail', kwargs={'post_id': cls.post.id}
         )
+        cls.COMMENT = reverse(
+            'posts:add_comment', kwargs={'post_id': cls.post.id}
+        )
 
     def setUp(self):
         self.guest_client = Client()
@@ -55,6 +62,7 @@ class PostURLTests(TestCase):
             self.POST: 'posts/post_detail.html',
             self.EDIT: 'posts/create_post.html',
             CREATE: 'posts/create_post.html',
+            FOLLOW_INDEX: 'posts/follow.html',
         }
         for address, template in templates_url_names.items():
             with self.subTest(adress=address):
@@ -62,10 +70,10 @@ class PostURLTests(TestCase):
                 self.assertTemplateUsed(response, template)
 
     def test_about_url_exists_at_desired_location(self):
-        url_names = [INDEX, GROUP, PROFILE, self.POST]
+        url_names = [INDEX, GROUP, PROFILE, self.POST, FOLLOW_INDEX]
         for address in url_names:
             with self.subTest(adress=address):
-                response = self.guest_client.get(address)
+                response = self.authorized_client.get(address)
                 self.assertEqual(response.status_code, HTTPStatus.OK)
 
     def test_unexisting_page(self):
@@ -83,7 +91,7 @@ class PostURLTests(TestCase):
     def test_redirect_guest_from_edit_post(self):
         response = self.guest_client.get(self.EDIT, follow=True)
         self.assertRedirects(
-            response, f'/auth/login/?next={self.EDIT}'
+            response, f'{LOGIN}?next={self.EDIT}'
         )
 
     def test_redirect_authorized_client_from_edit_post(self):
@@ -94,7 +102,7 @@ class PostURLTests(TestCase):
 
     def test_redirect_guest_from_create_post(self):
         response = self.guest_client.get(CREATE)
-        self.assertRedirects(response, f'/auth/login/?next={CREATE}')
+        self.assertRedirects(response, f'{LOGIN}?next={CREATE}')
 
 
 class StaticURLTests(TestCase):

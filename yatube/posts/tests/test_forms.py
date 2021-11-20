@@ -11,6 +11,7 @@ from django.urls import reverse
 from posts.forms import PostForm
 from posts.models import Post, Group, Comment
 
+
 TEMP_MEDIA_ROOT = tempfile.mkdtemp(dir=settings.BASE_DIR)
 
 User = get_user_model()
@@ -141,7 +142,8 @@ class PostCreateFormTests(TestCase):
 
         self.assertEqual(Post.objects.count(), posts_count)
         self.assertRedirects(response, LOGIN + '?next=' + CREATE,
-                             status_code=302, target_status_code=200)
+                             status_code=HTTPStatus.FOUND,
+                             target_status_code=HTTPStatus.OK)
 
     def test_create_comment(self):
         """Проверка формы создания нового комментария."""
@@ -172,14 +174,30 @@ class PostCreateFormTests(TestCase):
                 text=form_data['text']
             ).exists()
         )
-        # Пробуем создать комментарий неавторизованным пользователем
+
+    def test_create_comment_by_guest(self):
+        """
+        Проверяем, что нельзя создать комментарий
+        неавторизованным пользователем
+        """
+        url_comment = reverse(
+            'posts:add_comment', kwargs={'post_id': self.post.pk}
+        )
+        comments_count_before = Comment.objects.filter(
+            post=self.post.pk
+        ).count()
+        form_data = {'text': 'test_comment'}
         response = self.client.post(
             url_comment,
             data=form_data,
             follow=True
         )
+        comments_count_after = Comment.objects.filter(
+            post=self.post.pk
+        ).count()
         # Комментарий не добавлен - текущее их количество не изменилось
-        self.assertEqual(comments.count(), comments_count + 1)
+        self.assertEqual(comments_count_after, comments_count_before)
         # Пользователь отправлен на страницу логина
         self.assertRedirects(response, LOGIN + '?next=' + url_comment,
-                             status_code=302, target_status_code=200)
+                             status_code=HTTPStatus.FOUND,
+                             target_status_code=HTTPStatus.OK)
