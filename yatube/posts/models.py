@@ -1,6 +1,5 @@
 from django.contrib.auth import get_user_model
 from django.db import models
-from django.db.models import UniqueConstraint
 
 User = get_user_model()
 
@@ -28,7 +27,7 @@ class Post(models.Model):
     author = models.ForeignKey(User,
                                on_delete=models.CASCADE,
                                verbose_name='Автор',
-                               related_name='posts',)
+                               related_name='posts', )
     group = models.ForeignKey(Group,
                               on_delete=models.SET_NULL,
                               blank=True, null=True,
@@ -56,7 +55,7 @@ class Comment(models.Model):
     author = models.ForeignKey(User,
                                on_delete=models.CASCADE,
                                verbose_name='Автор',
-                               related_name='comments',)
+                               related_name='comments', )
     text = models.TextField('Текст комментария',
                             help_text='Добавьте комментарий')
     created = models.DateTimeField(
